@@ -1,0 +1,197 @@
+{
+    "name": "src2bronze_process_object",
+    "objectId": "28b351ba-2dfc-4db4-89ac-66f8b72834ca",
+    "properties": {
+        "activities": [
+            {
+                "name": "Filter Tables by Sequence Number",
+                "type": "Filter",
+                "dependsOn": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@pipeline().parameters.table_config",
+                        "type": "Expression"
+                    },
+                    "condition": {
+                        "value": "@equals(item().sequence_nbr, pipeline().parameters.sequence_nbr)",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "Process Each Table",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "Filter Tables by Sequence Number",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Filter Tables by Sequence Number').output.value",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "Switch by sources",
+                            "type": "Switch",
+                            "dependsOn": [],
+                            "typeProperties": {
+                                "on": {
+                                    "value": "@item().stg_file_format",
+                                    "type": "Expression"
+                                },
+                                "cases": [
+                                    {
+                                        "value": "parquet_none_header",
+                                        "activities": [
+                                            {
+                                                "name": "Copy From SQL to Parquet",
+                                                "type": "InvokePipeline",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "typeProperties": {
+                                                    "waitOnCompletion": true,
+                                                    "operationType": "InvokeFabricPipeline",
+                                                    "pipelineId": "861ff9cf-ddae-43ff-831d-75205ae597b8",
+                                                    "workspaceId": "9eed8444-2f25-4c73-bc90-6a6d5abbd4ea",
+                                                    "parameters": {
+                                                        "pipeline_id": {
+                                                            "value": "@pipeline().parameters.pipeline_id",
+                                                            "type": "Expression"
+                                                        },
+                                                        "pipeline_name": {
+                                                            "value": "@pipeline().parameters.pipeline_name",
+                                                            "type": "Expression"
+                                                        },
+                                                        "pipeline_run_id": {
+                                                            "value": "@pipeline().parameters.pipeline_trigger_id",
+                                                            "type": "Expression"
+                                                        },
+                                                        "pipeline_trigger_id": {
+                                                            "value": "@pipeline().parameters.pipeline_trigger_id",
+                                                            "type": "Expression"
+                                                        },
+                                                        "pipeline_trigger_time": {
+                                                            "value": "@pipeline().parameters.pipeline_trigger_time",
+                                                            "type": "Expression"
+                                                        },
+                                                        "pipeline_trigger_type": {
+                                                            "value": "@pipeline().parameters.pipeline_trigger_type",
+                                                            "type": "Expression"
+                                                        },
+                                                        "container": {
+                                                            "value": "@item().container",
+                                                            "type": "Expression"
+                                                        },
+                                                        "datasubject": {
+                                                            "value": "@item().datasubject",
+                                                            "type": "Expression"
+                                                        },
+                                                        "classification": {
+                                                            "value": "@item().classification",
+                                                            "type": "Expression"
+                                                        },
+                                                        "sourcesystem": {
+                                                            "value": "@item().sourcesystem",
+                                                            "type": "Expression"
+                                                        },
+                                                        "sourceschema": {
+                                                            "value": "@item().sourceschema",
+                                                            "type": "Expression"
+                                                        },
+                                                        "sourceschemaname": {
+                                                            "value": "@item().sourceschemaname",
+                                                            "type": "Expression"
+                                                        },
+                                                        "sourcetablename": {
+                                                            "value": "@item().sourcetablename",
+                                                            "type": "Expression"
+                                                        },
+                                                        "tablename": {
+                                                            "value": "@item().tablename",
+                                                            "type": "Expression"
+                                                        },
+                                                        "table_id": {
+                                                            "value": "@item().table_id",
+                                                            "type": "Expression"
+                                                        },
+                                                        "ingest_channel": {
+                                                            "value": "@item().ingest_channel",
+                                                            "type": "Expression"
+                                                        },
+                                                        "latest_load_dt": {
+                                                            "value": "@item().last_loaded_dt",
+                                                            "type": "Expression"
+                                                        },
+                                                        "ingest_partition": {
+                                                            "value": "@item().ingest_partition",
+                                                            "type": "Expression"
+                                                        },
+                                                        "criteria_columns": {
+                                                            "value": "@item().criteria_columns",
+                                                            "type": "Expression"
+                                                        },
+                                                        "full_refresh_flag": {
+                                                            "value": "@item().full_refresh_flag",
+                                                            "type": "Expression"
+                                                        },
+                                                        "layer": {
+                                                            "value": "@item().layer",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                },
+                                                "externalReferences": {
+                                                    "connection": "a8ef69da-6aa3-43bc-9b68-4300688dc0bd"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "defaultActivities": []
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "pipeline_id": {
+                "type": "string"
+            },
+            "pipeline_name": {
+                "type": "string"
+            },
+            "pipeline_run_id": {
+                "type": "string"
+            },
+            "pipeline_trigger_id": {
+                "type": "string"
+            },
+            "pipeline_trigger_time": {
+                "type": "string"
+            },
+            "pipeline_trigger_type": {
+                "type": "string"
+            },
+            "table_config": {
+                "type": "array"
+            },
+            "sequence_nbr": {
+                "type": "int"
+            }
+        },
+        "lastModifiedByObjectId": "9bf2ac9e-1d69-4d64-8784-ed0fdebe0b26",
+        "lastPublishTime": "2025-09-29T03:08:09Z"
+    }
+}

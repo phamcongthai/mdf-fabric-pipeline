@@ -1,0 +1,57 @@
+{
+    "name": "bronze2silver_application_sqlvm_prd01_wf",
+    "objectId": "164a2ec7-786e-458f-9339-484dd6bee04a",
+    "properties": {
+        "activities": [
+            {
+                "name": "CallToMainFunctionPipeline",
+                "type": "InvokePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "waitOnCompletion": true,
+                    "operationType": "InvokeFabricPipeline",
+                    "pipelineId": "bfdaa752-ed98-4902-bbfa-7de4177bbefd",
+                    "workspaceId": "9eed8444-2f25-4c73-bc90-6a6d5abbd4ea",
+                    "parameters": {
+                        "pipeline_id": {
+                            "value": "@pipeline().Pipeline",
+                            "type": "Expression"
+                        },
+                        "pipeline_name": {
+                            "value": "@pipeline().PipelineName",
+                            "type": "Expression"
+                        },
+                        "pipeline_run_id": {
+                            "value": "@pipeline().RunId",
+                            "type": "Expression"
+                        },
+                        "pipeline_trigger_id": {
+                            "value": "pipeline().TriggerId",
+                            "type": "Expression"
+                        },
+                        "pipeline_trigger_time": {
+                            "value": "@pipeline().TriggerTime",
+                            "type": "Expression"
+                        },
+                        "pipeline_trigger_type": {
+                            "value": "@pipeline().TriggerType",
+                            "type": "Expression"
+                        }
+                    }
+                },
+                "externalReferences": {
+                    "connection": "a8ef69da-6aa3-43bc-9b68-4300688dc0bd"
+                }
+            }
+        ],
+        "lastModifiedByObjectId": "9bf2ac9e-1d69-4d64-8784-ed0fdebe0b26",
+        "lastPublishTime": "2025-09-29T03:40:27Z"
+    }
+}
