@@ -1,73 +1,73 @@
 # Fabric Metadata-Driven ELT Framework
 
-Dự án này triển khai một **Metadata-Driven ELT Framework** trên nền tảng **Microsoft Fabric**. Kiến trúc được thiết kế nhằm mục đích tự động hóa, mở rộng và dễ dàng quản lý các luồng dữ liệu (Data Pipelines) dựa trên siêu dữ liệu (Metadata) thay vì phải hardcode từng luồng xử lý riêng biệt.
+This project implements a **Metadata-Driven ELT Framework** on **Microsoft Fabric**. The architecture is designed to automate, scale, and easily manage Data Pipelines based on Metadata rather than hardcoding individual data workflows. 
 
-Framework này tuân thủ theo nguyên tắc **Medallion Architecture**, phân tách luồng dữ liệu thành các lớp (Layers) rõ ràng: từ Source đến Staging (Bronze), từ Staging đến Transform (Silver), và Transform đến Hub (Gold).
+This framework strictly follows the **Medallion Architecture** principles, logically separating data processing into distinct layers: from Source to Staging (Bronze), Staging to Transform (Silver), and Transform to Hub (Gold).
 
 ---
 
-## 🏛️ Tổng quan Kiến trúc (Architecture Overview)
+## 🏛️ Architecture Overview
 
-Kiến trúc cốt lõi của Framework bao gồm 3 thành phần chính:
+The core architecture of the framework consists of 3 main components:
 
-1. **Metadata Configuration (Lớp Cấu Hình):** Quyết định *cái gì* sẽ được chạy và chạy *như thế nào*.
-2. **Function Pipelines (Lớp Xử Lý Dùng Chung):** Các Pipeline chung thực hiện logic ELT (Extract, Load, Transform).
-3. **Data Subject Pipelines (Lớp Kích Hoạt):** Các Pipeline dành riêng cho từng chủ đề dữ liệu, đóng vai trò "Trigger" để gọi các Function Pipelines.
+1. **Metadata Configuration:** Dictates *what* needs to be executed and *how*.
+2. **Function Pipelines (Generic Logic):** Shared pipelines that execute the actual ELT (Extract, Load, Transform) logic.
+3. **Data Subject Pipelines (Triggers):** Subject-specific pipelines acting as triggers to invoke the Function Pipelines.
 
-### 1. Lớp Cấu Hình (Metadata Configuration)
-Nằm trong thư mục `CONFIG_DATA/DATA/`, dữ liệu metadata (được lưu trữ dưới dạng `.csv` hoặc Bảng trên Lakehouse/SQL) là trái tim của hệ thống:
-- **`elt_table_config.csv`**: Chứa toàn bộ định nghĩa về các bảng cần ETL. Các thuộc tính quan trọng bao gồm:
-  - `sourcesystem`, `sourcetablename`: Thông tin nguồn dữ liệu.
-  - `layer`: Lớp dữ liệu đang được xử lý (VD: `src2bronze`, `bronze2silver`).
-  - `file_type`, `stg_file_type`: Định dạng file lưu trữ (parquet, delta).
-  - `full_refresh_flag`, `last_loaded_dt`, `criteria_columns`: Các cờ (flags) để xác định xem tiến trình sẽ chạy nạp toàn bộ (Full Load) hay nạp tăng dần (Incremental/Delta Load).
+### 1. Metadata Configuration Layer
+Located in the `CONFIG_DATA/DATA/` directory, metadata (stored as `.csv` files or Lakehouse/SQL tables) is the heart of the system:
+- **`elt_table_config.csv`**: Contains all definitions for tables requiring ETL processing. Key attributes include:
+  - `sourcesystem`, `sourcetablename`: Source system and table information.
+  - `layer`: The target data layer for the process (e.g., `src2bronze`, `bronze2silver`).
+  - `file_type`, `stg_file_type`: Storage file formats (parquet, delta).
+  - `full_refresh_flag`, `last_loaded_dt`, `criteria_columns`: Control flags to determine whether the pipeline performs a Full Load or an Incremental (Delta) Load.
 
-Ngoài ra, `CONFIG_DATA/STORED_PROCEDURE/` (như `update_load_status.sql`) chứa các thủ tục dùng để ghi nhận log và cập nhật trạng thái của các tiến trình ELT.
+Additionally, the `CONFIG_DATA/STORED_PROCEDURE/` directory (e.g., `update_load_status.sql`) contains procedures used to log execution details and update ELT process statuses.
 
-### 2. Lớp Xử Lý Dùng Chung (Function Pipelines)
-Nằm trong thư mục `FUNCTION_PIPELINES/`. Thay vì tạo hàng trăm pipeline cho hàng trăm bảng, dự án chỉ xây dựng một số ít **Generic Pipelines**.
-- **`coordinator.json`**: Đóng vai trò là Master Orchestrator, điều phối các luồng chạy.
+### 2. Function Pipelines Layer
+Located in the `FUNCTION_PIPELINES/` directory. Instead of creating hundreds of pipelines for hundreds of tables, the project relies on a few parameterized **Generic Pipelines**.
+- **`coordinator.json`**: Acts as the Master Orchestrator, coordinating workflow execution.
 - **`SRC2STG` (Source to Bronze/Staging):**
-  - Đọc cấu hình (`src2stg_get_config.json`).
-  - Lặp qua từng đối tượng cần xử lý (`src2stg_process_object.json`).
-  - Copy dữ liệu từ hệ thống nguồn (VD: SQL Server) vào Lakehouse/ADLS dưới dạng file Parquet (`src2stg_copy_from_sql_to_parquet.json`).
+  - Reads the metadata configuration (`src2stg_get_config.json`).
+  - Iterates through each targeted object (`src2stg_process_object.json`).
+  - Copies data from the source system (e.g., SQL Server) into the Lakehouse/ADLS as Parquet files (`src2stg_copy_from_sql_to_parquet.json`).
 - **`STG2TRANS` (Bronze to Silver/Transform):**
-  - Đọc cấu hình và lặp qua các đối tượng staging.
-  - Sử dụng Spark Notebook (`stg2trans_refresh_from_stg_nbk.ipynb`) để transform dữ liệu từ định dạng file Staging sang định dạng bảng Delta chuẩn hóa ở lớp Transform (Silver Lakehouse).
+  - Reads configuration and iterates through staging objects.
+  - Utilizes Spark Notebooks (`stg2trans_refresh_from_stg_nbk.ipynb`) to transform data from staging files into standardized Delta tables in the Silver Transform layer.
 - **`TRANS2HUB` (Silver to Gold):**
-  - Xử lý các logic aggregation, dims/facts để đẩy dữ liệu lên lớp Data Mart/Hub phục vụ báo cáo.
+  - Processes aggregation logic, handling dimensions and facts to push data into the Data Mart/Hub layer for reporting and analytics.
 
-### 3. Lớp Kích Hoạt (Data Subject Pipelines)
-Nằm trong thư mục `DATASUBJECT_PIPELINES/` (Ví dụ: `APPLICATION`).
-- Các pipeline này (ví dụ: `src2stg_application_sqlvm_prd01_wf.json`) cực kỳ tinh gọn.
-- Chúng không chứa logic sao chép hay biến đổi dữ liệu, mà chỉ sử dụng activity **InvokePipeline** (CallToMainFunctionPipeline) để truyền context (Pipeline ID, Run ID, Trigger Time) vào các **Function Pipelines**.
-- Cách tiếp cận này giúp việc phân quyền và lập lịch (Scheduling) linh hoạt hơn theo từng Data Subject (Chủ đề dữ liệu) cụ thể.
+### 3. Data Subject Pipelines Layer
+Located in the `DATASUBJECT_PIPELINES/` directory (e.g., `APPLICATION`).
+- These pipelines (e.g., `src2stg_application_sqlvm_prd01_wf.json`) are extremely lean.
+- They do not contain any data movement or transformation logic. Instead, they use the **InvokePipeline** activity (`CallToMainFunctionPipeline`) to pass execution context (Pipeline ID, Run ID, Trigger Time) to the **Function Pipelines**.
+- This approach enables highly flexible permission management and scheduling based on specific Data Subjects.
 
 ---
 
-## 🚀 Cách Thức Hoạt Động Của Một Luồng (Workflow)
+## 🚀 Workflow Execution
 
-1. **Trigger:** Một Trigger hoặc lập lịch trên Fabric khởi chạy một Data Subject Pipeline (VD: `src2bronze_application_sqlvm_prd01_wf`).
-2. **Invoke:** Pipeline này gọi đến Generic Pipeline tương ứng thông qua tính năng InvokePipeline.
-3. **Get Config:** Generic Pipeline đọc file cấu hình (`elt_table_config.csv`) và lọc ra những bảng thuộc Data Subject "application" và layer "src2bronze" cần chạy.
-4. **Process/Iterate:** Vòng lặp ForEach được kích hoạt, lặp qua từng bảng.
+1. **Trigger:** A schedule or manual trigger initiates a Data Subject Pipeline (e.g., `src2bronze_application_sqlvm_prd01_wf`).
+2. **Invoke:** This pipeline calls the corresponding Generic Pipeline using the InvokePipeline feature.
+3. **Get Config:** The Generic Pipeline reads the configuration file (`elt_table_config.csv`) and filters for tables belonging to the specific Data Subject (e.g., "application") and layer (e.g., "src2bronze").
+4. **Process/Iterate:** A ForEach loop is activated to iterate over the filtered tables.
 5. **ELT Execution:**
-   - Dữ liệu có thể được trích xuất (Copy Data Activity) hoặc biến đổi (gọi Spark Notebook).
-   - Tiến trình tự nhận diện việc load là Full hay Incremental dựa vào `last_loaded_dt`.
-6. **Audit/Log:** Sau khi chạy xong, tiến trình gọi thủ tục `update_load_status.sql` để đánh dấu trạng thái (Success/Failed) và cập nhật `last_loaded_dt` cho lần chạy tiếp theo.
+   - Data is either extracted (Copy Data Activity) or transformed (Spark Notebook execution).
+   - The process automatically determines whether to perform a Full or Incremental load based on the `last_loaded_dt` and refresh flags.
+6. **Audit/Log:** Upon completion, the pipeline executes the `update_load_status.sql` stored procedure to log the status (Success/Failed) and update the `last_loaded_dt` for the next run.
 
 ---
 
-## 🌟 Lợi Ích Của Kiến Trúc
+## 🌟 Architecture Benefits
 
-- **Khả năng mở rộng (Scalability):** Muốn thêm 10 bảng mới vào hệ thống? Bạn không cần phải tạo thêm 10 pipeline. Chỉ cần thêm 10 dòng cấu hình vào file `elt_table_config.csv`.
-- **Dễ bảo trì (Maintainability):** Logic xử lý (Ví dụ logic copy hoặc logic Spark transform) tập trung ở thư mục `FUNCTION_PIPELINES`. Sửa 1 nơi, áp dụng cho toàn bộ.
-- **Audit và Tracking dễ dàng:** Mọi lần chạy đều được ghi nhận bằng metadata control tables / stored procedures.
+- **Scalability:** Need to onboard 10 new tables? There is no need to create 10 new pipelines. Simply add 10 configuration rows to `elt_table_config.csv`.
+- **Maintainability:** Processing logic (e.g., Copy Logic or Spark Transformations) is centralized in `FUNCTION_PIPELINES`. Update in one place to apply globally.
+- **Easy Audit & Tracking:** Every pipeline run is recorded using metadata control tables and stored procedures.
 
 ---
 
-## 🛠️ Công Nghệ Sử Dụng
-- **Nền tảng:** Microsoft Fabric (Data Factory Pipelines, Synapse Data Engineering / Spark Notebooks, Lakehouse).
-- **Kiến trúc dữ liệu:** Medallion Architecture (Bronze, Silver, Gold).
-- **Định dạng dữ liệu:** Parquet, Delta Tables.
-- **Ngôn ngữ:** PySpark (Notebooks), SQL (Stored Procedures), JSON (Pipelines).
+## 🛠️ Technologies Used
+- **Platform:** Microsoft Fabric (Data Factory Pipelines, Synapse Data Engineering / Spark Notebooks, Lakehouse).
+- **Data Architecture:** Medallion Architecture (Bronze, Silver, Gold).
+- **Data Formats:** Parquet, Delta Tables.
+- **Languages:** PySpark (Notebooks), SQL (Stored Procedures), JSON (Pipelines).
